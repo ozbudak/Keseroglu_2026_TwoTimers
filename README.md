@@ -16,7 +16,9 @@ The macro uses changes in the measured lengths of sequential LOIs to reconstruct
 
 ### `Centered_Kymograph.ijm`
 
-Horizontally aligns the rows of a kymograph to a user-defined anatomical reference trajectory.
+Horizontally aligns each row of a kymograph to a user-defined anatomical reference trajectory. The reference trajectory must be stored as ROI #0 in the ROI Manager.
+
+For each y-position, the macro determines the corresponding x-coordinate of the reference trajectory and horizontally shifts the image row so that the trajectory is aligned to a common position.
 
 The `Position` parameter specifies the anatomical reference used for alignment:
 
@@ -24,11 +26,19 @@ The `Position` parameter specifies the anatomical reference used for alignment:
 - `AN` — anterior-aligned
 - `DF` — determination-front-aligned
 
+The `deltaposittt` parameter specifies the horizontal offset of the intensity-profile line relative to the alignment reference:
+
+- `PS` — 20 pixels
+- `AN` — 20 pixels
+- `DF` — 0 pixels
+
 ## Requirements
 
 - Fiji/ImageJ
 - LOI Interpolator
 - ROI Manager
+
+No non-standard hardware is required.
 
 ## Usage
 
@@ -44,11 +54,46 @@ The `Position` parameter specifies the anatomical reference used for alignment:
 
 1. Open the kymograph to be aligned.
 2. Add the desired anatomical reference trajectory as ROI #0 in the ROI Manager.
-3. Select the appropriate alignment reference (`PS`, `AN`, or `DF`) in the macro.
-4. Run `Centered_Kymograph.ijm`.
+3. Set `Position` to the desired alignment reference (`PS`, `AN`, or `DF`).
+4. Set `deltaposittt` to 20 pixels for `PS` or `AN`, or 0 pixels for `DF`.
+5. Run `Centered_Kymograph.ijm`.
+
+## Demo
+
+Example datasets are provided in the `demo/` directory to test the macros.
+
+### Lab-frame kymograph demo
+
+The `demo/` directory contains an example maximum-projected YFP time-lapse image and the corresponding LOIs used to generate a laboratory-frame kymograph.
+
+1. Open `example_timelapse.tif` in Fiji.
+2. Open the ROI Manager and load `example_LOIs.zip`.
+3. Run `Lab_Frame_Kymograph.ijm`.
+
+The macro generates a laboratory-frame kymograph from the supplied time-lapse image and LOIs.
+
+Expected runtime: less than 1 minute on a standard desktop computer.
+
+### Centered kymograph demo
+
+An example kymograph and anatomical reference trajectory are provided for testing the alignment macro.
+
+1. Open `example_kymograph.tif` in Fiji.
+2. Open the ROI Manager and load `example_alignment_ROI.zip`.
+3. Confirm that the anatomical reference trajectory is ROI #0.
+4. Set `Position` and `deltaposittt` to the appropriate values in `Centered_Kymograph.ijm`.
+5. Run `Centered_Kymograph.ijm`.
+
+The macro generates a horizontally aligned kymograph in which the selected anatomical reference trajectory is positioned at a common x-coordinate.
+
+Expected runtime: less than 1 minute on a standard desktop computer.
 
 ## Citation
 
 If you use these macros, please cite the associated publication.
 
 Publication details and DOI can be added here after publication.
+
+## License
+
+This code is released under the MIT License. See the `LICENSE` file for details.
