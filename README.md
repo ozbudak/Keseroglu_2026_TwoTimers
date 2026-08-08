@@ -70,35 +70,6 @@ The macro generates:
 
 The macro generates the corresponding AN- or DF-aligned kymograph and an intensity-profile CSV file.
 
-## Demo
-
-Example data are provided in the `demo/` directory to demonstrate the analysis workflow.
-
-### Laboratory-frame and posterior-aligned kymograph demo
-
-The demo includes an example maximum-projected YFP time-lapse image and the corresponding LOIs.
-
-1. Open `example_timelapse.tif` in Fiji.
-2. Open the ROI Manager and load `example_LOIs.zip`.
-3. Run `Lab_Frame_and_Posterior_Aligned_Kymograph.ijm`.
-
-Expected outputs include posterior-aligned (PS) and laboratory-frame (LF) kymographs and the PS intensity-profile CSV file.
-
-Expected runtime: less than 1 minute on a standard desktop computer.
-
-### Anterior- and determination-front-aligned kymograph demo
-
-The demo includes an example kymograph that can be used to test AN or DF alignment.
-
-1. Open `example_kymograph.tif` in Fiji.
-2. Draw or load the desired anatomical reference trajectory.
-3. Set `Position` and `deltaposit` for AN or DF alignment.
-4. Run `Anterior_and_Determination_Front_Aligned_Kymograph.ijm`.
-
-The expected output is an AN- or DF-aligned kymograph together with the corresponding intensity-profile CSV file.
-
-Expected runtime: less than 1 minute on a standard desktop computer.
-
 ## Citation
 
 If you use these macros, please cite the associated publication.
