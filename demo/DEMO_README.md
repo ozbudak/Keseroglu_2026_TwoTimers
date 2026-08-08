@@ -1,6 +1,6 @@
 # Demo Dataset
 
-The example dataset required to run and test the ImageJ/Fiji kymograph analysis macros is hosted separately from this GitHub repository because of its large file size (~1.5 GB).
+The example dataset required to run and test the ImageJ/Fiji kymograph analysis macros is hosted separately from this GitHub repository because of its large file size (~1.4 GB).
 
 ## Dataset
 
