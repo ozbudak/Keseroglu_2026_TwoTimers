@@ -78,7 +78,7 @@ Publication details and DOI can be added here after publication.
 
 ## Demo Dataset
 
-The example dataset required to test the macros is available at https://drive.google.com/file/d/1S7oYOWR1_EhN6gt3hyTxJfwxk1Dl7JEv/
+The example dataset and associated ROI file required to test the macros are available at https://drive.google.com/file/d/1pTFO4lg9WsplZXRgUbDZMYTSp3b9dWq3/
 
 ## License
 
