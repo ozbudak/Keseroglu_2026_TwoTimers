@@ -1,36 +1,36 @@
 # Zebrafish Kymograph Analysis
 
-ImageJ/Fiji macros for generating and aligning kymographs used to analyze tissue dynamics during zebrafish somitogenesis.
+ImageJ/Fiji macros for generating and spatially aligning kymographs used to analyze tissue dynamics during zebrafish somitogenesis.
 
 ## Files
 
-### `Lab_Frame_Kymograph.ijm`
+### `Lab_Frame_and_Posterior_Aligned_Kymograph.ijm`
 
-Generates lab-frame kymographs from maximum-projected YFP time-lapse images using Fiji's LOI Interpolator.
+Generates laboratory-frame (LF) and posterior-aligned (PS) kymographs from maximum-projected YFP time-lapse images using Fiji's LOI Interpolator.
 
-Lines of interest (LOIs) are manually drawn along the tissue at selected time points and added sequentially to the ROI Manager while keeping the most recently formed somite boundary at a fixed reference position. The LOI Interpolator interpolates between successive LOIs to generate a continuous kymograph.
+Lines of interest (LOIs) are manually drawn along the tissue at selected time points and added sequentially to the ROI Manager. The most recently formed somite boundary is used as the posterior reference position. The LOI Interpolator interpolates between successive LOIs to generate continuous kymographs.
 
 For the analyses described in the associated study, the LOI width was set to 30 pixels (37.5 µm), and fluorescence intensity was averaged across the line width.
 
-The macro uses changes in the measured lengths of sequential LOIs to reconstruct the kymograph in the laboratory reference frame.
+The macro first generates a posterior-aligned (PS) kymograph and extracts an intensity profile at a fixed position relative to the posterior reference. It then generates a laboratory-frame (LF) kymograph by accounting for changes in LOI length over time.
 
-### `Centered_Kymograph.ijm`
+### `Anterior_and_Determination_Front_Aligned_Kymograph.ijm`
 
-Horizontally aligns each row of a kymograph to a user-defined anatomical reference trajectory. The reference trajectory must be stored as ROI #0 in the ROI Manager.
+Generates spatially aligned kymographs using either the anterior boundary (AN) or the determination front (DF) as the anatomical reference.
 
-For each y-position, the macro determines the corresponding x-coordinate of the reference trajectory and horizontally shifts the image row so that the trajectory is aligned to a common position.
+The desired anatomical reference trajectory is manually defined on the input kymograph. For each image row, the macro determines the x-coordinate of this trajectory and horizontally shifts the row so that the selected anatomical reference remains at a fixed spatial position throughout the kymograph.
 
-The `Position` parameter specifies the anatomical reference used for alignment:
+The `Position` parameter specifies the alignment mode:
 
-- `PS` — posterior-aligned
 - `AN` — anterior-aligned
 - `DF` — determination-front-aligned
 
-The `deltaposittt` parameter specifies the horizontal offset of the intensity-profile line relative to the alignment reference:
+The `deltaposit` parameter specifies the horizontal offset of the intensity-profile line relative to the aligned anatomical reference:
 
-- `PS` — 20 pixels
 - `AN` — 20 pixels
 - `DF` — 0 pixels
+
+For the analyses described in the associated study, the intensity-profile line width (`AnalyseLineWidth`) was set to 10 pixels.
 
 ## Requirements
 
@@ -42,49 +42,60 @@ No non-standard hardware is required.
 
 ## Usage
 
-### Lab-frame kymograph
+### Laboratory-frame and posterior-aligned kymographs
 
 1. Open the maximum-projected YFP time-lapse image in Fiji.
 2. Draw LOIs along the tissue at selected time points.
-3. Add the LOIs sequentially to the ROI Manager while keeping the most recently formed somite boundary at the reference position.
-4. Set the LOI width to 30 pixels (37.5 µm).
-5. Run `Lab_Frame_Kymograph.ijm`.
+3. Add the LOIs sequentially to the ROI Manager while keeping the most recently formed somite boundary at the posterior reference position.
+4. Ensure that each LOI retains its corresponding slice/time-point information.
+5. Set the LOI width to 30 pixels (37.5 µm).
+6. Run `Lab_Frame_and_Posterior_Aligned_Kymograph.ijm`.
 
-### Centered kymograph
+The macro generates:
+
+- a posterior-aligned (PS) kymograph;
+- an intensity-profile CSV file from the PS-aligned kymograph;
+- the ROI set used for the analysis; and
+- a laboratory-frame (LF) kymograph.
+
+### Anterior- and determination-front-aligned kymographs
 
 1. Open the kymograph to be aligned.
-2. Add the desired anatomical reference trajectory as ROI #0 in the ROI Manager.
-3. Set `Position` to the desired alignment reference (`PS`, `AN`, or `DF`).
-4. Set `deltaposittt` to 20 pixels for `PS` or `AN`, or 0 pixels for `DF`.
-5. Run `Centered_Kymograph.ijm`.
+2. Draw the desired anatomical reference trajectory (AN or DF) along the kymograph.
+3. Ensure that the reference trajectory spans the vertical extent of the kymograph.
+4. Set `Position` and `deltaposit` in `Anterior_and_Determination_Front_Aligned_Kymograph.ijm` as follows:
+   - AN alignment: `Position = "AN"` and `deltaposit = 20`
+   - DF alignment: `Position = "DF"` and `deltaposit = 0`
+5. Run `Anterior_and_Determination_Front_Aligned_Kymograph.ijm`.
+
+The macro generates the corresponding AN- or DF-aligned kymograph and an intensity-profile CSV file.
 
 ## Demo
 
-Example datasets are provided in the `demo/` directory to test the macros.
+Example data are provided in the `demo/` directory to demonstrate the analysis workflow.
 
-### Lab-frame kymograph demo
+### Laboratory-frame and posterior-aligned kymograph demo
 
-The `demo/` directory contains an example maximum-projected YFP time-lapse image and the corresponding LOIs used to generate a laboratory-frame kymograph.
+The demo includes an example maximum-projected YFP time-lapse image and the corresponding LOIs.
 
 1. Open `example_timelapse.tif` in Fiji.
 2. Open the ROI Manager and load `example_LOIs.zip`.
-3. Run `Lab_Frame_Kymograph.ijm`.
+3. Run `Lab_Frame_and_Posterior_Aligned_Kymograph.ijm`.
 
-The macro generates a laboratory-frame kymograph from the supplied time-lapse image and LOIs.
+Expected outputs include posterior-aligned (PS) and laboratory-frame (LF) kymographs and the PS intensity-profile CSV file.
 
 Expected runtime: less than 1 minute on a standard desktop computer.
 
-### Centered kymograph demo
+### Anterior- and determination-front-aligned kymograph demo
 
-An example kymograph and anatomical reference trajectory are provided for testing the alignment macro.
+The demo includes an example kymograph that can be used to test AN or DF alignment.
 
 1. Open `example_kymograph.tif` in Fiji.
-2. Open the ROI Manager and load `example_alignment_ROI.zip`.
-3. Confirm that the anatomical reference trajectory is ROI #0.
-4. Set `Position` and `deltaposittt` to the appropriate values in `Centered_Kymograph.ijm`.
-5. Run `Centered_Kymograph.ijm`.
+2. Draw or load the desired anatomical reference trajectory.
+3. Set `Position` and `deltaposit` for AN or DF alignment.
+4. Run `Anterior_and_Determination_Front_Aligned_Kymograph.ijm`.
 
-The macro generates a horizontally aligned kymograph in which the selected anatomical reference trajectory is positioned at a common x-coordinate.
+The expected output is an AN- or DF-aligned kymograph together with the corresponding intensity-profile CSV file.
 
 Expected runtime: less than 1 minute on a standard desktop computer.
 
