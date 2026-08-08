@@ -6,7 +6,7 @@ The example dataset required to run and test the ImageJ/Fiji kymograph analysis 
 
 The demo dataset is available at:
 
-https://drive.google.com/file/d/1S7oYOWR1_EhN6gt3hyTxJfwxk1Dl7JEv/view?usp=drive_link
+https://drive.google.com/file/d/1S7oYOWR1_EhN6gt3hyTxJfwxk1Dl7JEv/
 
 The dataset contains the input time-lapse image file required to test the kymograph analysis workflow.
 
