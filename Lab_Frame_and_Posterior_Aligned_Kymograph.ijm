@@ -7,35 +7,21 @@
 // a maximum-projected YFP time-lapse image using Fiji's LOI Interpolator.
 //
 // Lines of interest (LOIs) are manually drawn along the tissue at selected
-// time points and added sequentially to the ROI Manager. The most recently
-// formed somite boundary is used as the posterior (PS) reference position.
-// Fiji's LOI Interpolator interpolates between successive LOIs to generate
-// continuous kymographs.
+// time points and added sequentially to the ROI Manager.
 //
-// For the analyses reported in the associated study, the LOI width was set to
-// 30 pixels (37.5 µm), and fluorescence intensity was averaged across the
-// line width.
+// At the start of the analysis, the line width is set to 30 pixels (37.5 µm).
+// The macro then reads the line width stored in ROI #0 and applies this value
+// when generating the kymographs. Fluorescence intensity is averaged across
+// the full LOI width.
 //
 // The macro first generates a posterior-aligned kymograph and extracts an
 // intensity profile at a fixed position relative to the posterior reference.
-// It then generates a second kymograph and reconstructs it in the laboratory
-// reference frame by accounting for changes in LOI length over time.
-//
-// Input requirements:
-//   1. Open the maximum-projected YFP time-lapse image.
-//   2. Draw LOIs along the tissue at selected time points and add them
-//      sequentially to the ROI Manager.
-//   3. Keep the most recently formed somite boundary at the posterior
-//      reference position when defining the LOIs.
-//   4. Ensure that each LOI retains its corresponding slice/time-point
-//      information for interpolation.
-//   5. For the analyses reported here, use an LOI width of 30 pixels
-//      (37.5 µm).
-//   6. The input image title must end with ".tif".
+// It then generates a laboratory-frame kymograph using the LOIs stored in the
+// ROI Manager.
 //
 // Output:
 //   PS_Kymograph of <input>.tif   Posterior-aligned kymograph
-//   PS_<input>.zip                ROI set used for PS alignment
+//   LF_PS_<input>.zip             ROI set used for the analysis
 //   PS_<input>.csv                Intensity profile from the PS kymograph
 //   LF_Kymograph of <input>.tif   Laboratory-frame kymograph
 //
@@ -43,60 +29,74 @@
 
 
 // -----------------------------------------------------------------------------
-// Read the input image name and define analysis parameters.
+// Read the input image name, create the output directory, and define analysis
+// parameters.
 // -----------------------------------------------------------------------------
+
 input = getInfo("image.Directory");
 title = getTitle;
 file = substring(title, 0, indexOf(title, ".tif"));
+output = input + "Output\\";
+File.makeDirectory(output);
 
-deltaposit = 20;       // Horizontal offset (pixels) of the intensity-profile
-                       // line from the posterior (PS) reference position.
-AnalyseLineWidth = 10; // Width (pixels) of the line used for profile extraction.
+deltaposit = 20;        // Distance (pixels) of the intensity-profile line from
+                         // the posterior reference position.
+AnalysisLineWidth = 10; // Width (pixels) of the intensity-profile line.
 
 
 // =============================================================================
 // PART 1 — POSTERIOR-ALIGNED (PS) KYMOGRAPH
 // =============================================================================
 //
-// Generate a kymograph aligned to the posterior reference defined by the LOIs.
-// The LOIs are flipped by the LOI Interpolator so that the posterior reference
-// remains at a fixed spatial position in the resulting kymograph.
+// Set the LOI width to 30 pixels and verify that the ROI Manager is available.
+// The LOIs stored in the ROI Manager define the tissue trajectory at the
+// selected time points.
 // -----------------------------------------------------------------------------
+
+setTool(5);run("Line Width...", "line=30");
+if (!isOpen("ROI Manager")) {
+    showMessage("ROI Manager Required", 
+        "Please add the LOIs to the ROI Manager before running this macro.");
+    exit();
+}
+
+nn = roiManager("count");
+roiManager("Select", nn-1);
+getDimensions(widthn, heightn, channelsn, slicesn, framesn);
 
 roiManager("Select", 0);
 setTool("polyline");
 
-// Read the line coordinates and width from ROI #0.
+// Read the line coordinates and stored line width from ROI #0.
 getLine(x1, y1, x2, y2, lineWidth);
 
-// Apply the ROI line width and generate the posterior-aligned kymograph.
-// Fluorescence intensity is averaged across the full LOI width.
+// Apply the LOI width stored in ROI #0 and generate the posterior-aligned
+// kymograph. Fluorescence intensity is averaged across the full LOI width.
 run("Line Width...", "line=" + lineWidth);
 run("LOI Interpolator", "rois_are_flipped average_over_line_width show_kymograph");
 
 
 // -----------------------------------------------------------------------------
-// Extract an intensity profile from the posterior-aligned kymograph.
+// Define the intensity-profile line on the posterior-aligned kymograph.
 //
-// The profile is measured along a vertical line positioned 20 pixels from the
-// posterior reference. For the analyses reported here, the profile line width
-// was 10 pixels.
+// The vertical profile line is positioned at a fixed distance (deltaposit)
+// from the posterior reference and spans all time points. Its width is defined
+// by AnalysisLineWidth.
 // -----------------------------------------------------------------------------
 
-makeLine(deltaposit, 0, deltaposit, 480, AnalyseLineWidth);
-
-
-// -----------------------------------------------------------------------------
-// Save the posterior-aligned kymograph and the corresponding ROI set.
-// -----------------------------------------------------------------------------
-
-saveAs("Tiff", input + "PS_Kymograph of " + file + ".tif");
-roiManager("Save", input + "/PS_" + file + ".zip");
+makeLine(deltaposit, 0, deltaposit, framesn-1, AnalysisLineWidth);
 
 
 // -----------------------------------------------------------------------------
-// Generate and save the intensity profile from the posterior-aligned
-// kymograph.
+// Save the posterior-aligned kymograph and the ROI set used for the analysis.
+// -----------------------------------------------------------------------------
+
+saveAs("Tiff", output + "PS_Kymograph of " + file + ".tif");
+roiManager("Save", output + "LF_PS_" + file + ".zip");
+
+
+// -----------------------------------------------------------------------------
+// Extract and save the intensity profile from the posterior-aligned kymograph.
 // -----------------------------------------------------------------------------
 
 run("Plot Profile");
@@ -104,7 +104,7 @@ Plot.showValues();
 
 selectWindow("Results");
 String.copyResults();
-saveAs("Results", input + "/PS_" + file + ".csv");
+saveAs("Results", output + "PS_" + file + ".csv");
 close("Results");
 
 close("PS_Kymograph of " + file + ".tif");
@@ -115,29 +115,23 @@ close("Plot of PS_Kymograph of " + file);
 // PART 2 — LABORATORY-FRAME (LF) KYMOGRAPH
 // =============================================================================
 //
-// Return to the original time-lapse image and generate a second kymograph
-// without posterior alignment. This kymograph is subsequently corrected for
-// changes in LOI length to reconstruct tissue position in the laboratory
-// reference frame.
+// Return to the original time-lapse image and generate a laboratory-frame
+// kymograph using the LOIs stored in the ROI Manager.
 // -----------------------------------------------------------------------------
 
 selectWindow(title);
 
-// Read the line coordinates and width from ROI #0.
+// Read the line coordinates and stored line width from ROI #0.
 getLine(x1, y1, x2, y2, lineWidth);
 
-// Apply the ROI line width and generate the initial kymograph.
+// Apply the stored LOI width and generate the laboratory-frame kymograph.
+// Fluorescence intensity is averaged across the full LOI width.
 run("Line Width...", "line=" + lineWidth);
 run("LOI Interpolator", "average_over_line_width show_kymograph");
 
 
 // -----------------------------------------------------------------------------
-// Measure the length and corresponding slice/time point of each LOI.
-//
-// These measurements are used to identify decreases in LOI length between
-// consecutive time points. Such decreases correspond to changes in the
-// spatial reference caused by formation of new somite boundaries and are
-// subsequently used to reconstruct the laboratory-frame coordinates.
+// Measure the length and corresponding slice/time point of every LOI.
 // -----------------------------------------------------------------------------
 
 selectWindow(title);
@@ -162,12 +156,9 @@ for (i = 0; i < nn; i++) {
 // Calculate the total horizontal displacement required for laboratory-frame
 // reconstruction.
 //
-// When the LOI length decreases between consecutive slices/time points, the
-// decrease is converted from calibrated distance to pixels and added to the
-// cumulative displacement D.
-//
-// The kymograph canvas is subsequently expanded by D pixels to provide enough
-// space for the laboratory-frame reconstruction without clipping.
+// For each decrease in LOI length between consecutive time points, convert the
+// change in calibrated length to pixels and add it to the cumulative
+// displacement D.
 // -----------------------------------------------------------------------------
 
 D = 0;
@@ -183,11 +174,11 @@ for (i = 0; i < nResults; i++) {
     print(Slice_i0, Length_i0);
     print(Slice_i1, Length_i1);
 
-    // Identify a decrease in LOI length between consecutive time points.
+    // Detect a decrease in LOI length between consecutive time points.
     if ((Slice_i1 - Slice_i0 == 1) & (Length_i1 < Length_i0)) {
 
-        // Convert the decrease in calibrated length to pixels and add it to
-        // the cumulative displacement.
+        // Convert the decrease in calibrated LOI length to pixels and add it
+        // to the cumulative displacement.
         D += round((Length_i0 - Length_i1) / pixelHeight);
 
         print(Slice_i1, D);
@@ -200,8 +191,8 @@ run("Select None");
 
 
 // -----------------------------------------------------------------------------
-// Expand the initial kymograph to accommodate the cumulative horizontal
-// displacement.
+// Expand the laboratory-frame kymograph canvas to accommodate the total
+// horizontal displacement.
 // -----------------------------------------------------------------------------
 
 selectWindow("Kymograph of " + title);
@@ -213,8 +204,8 @@ PixelLength_in = getResult("Length", nResults-1) / pixelHeight;
 
 print(getResult("Length", nResults-1));
 
-// Increase the canvas width by the cumulative displacement D while keeping
-// the original kymograph anchored at the top-left corner.
+// Set the canvas width to the final LOI length plus the cumulative displacement
+// while keeping the kymograph anchored at the top-left corner.
 run("Canvas Size...",
     "width=" + PixelLength_in + D +
     " height=" + height +
@@ -224,13 +215,9 @@ run("Canvas Size...",
 // -----------------------------------------------------------------------------
 // Reconstruct the kymograph in the laboratory reference frame.
 //
-// For each decrease in LOI length between consecutive time points, calculate
-// the corresponding horizontal displacement M. All kymograph rows from that
-// time point onward are shifted to the right by M pixels.
-//
-// Applying these shifts cumulatively preserves tissue position in the
-// laboratory reference frame despite changes in LOI length associated with
-// successive somite formation.
+// At each time point where the LOI becomes shorter, calculate the corresponding
+// displacement M. The kymograph rows from that time point onward are shifted
+// horizontally by M pixels.
 // -----------------------------------------------------------------------------
 
 M = 0;
@@ -243,8 +230,7 @@ for (i = 0; i < nResults; i++) {
     Length_i1 = getResult("Length", i);
     Slice_i1  = getResult("Slice", i);
 
-    // Process consecutive time points in which the measured LOI becomes
-    // shorter.
+    // Process consecutive time points where the LOI becomes shorter.
     if ((Slice_i1 - Slice_i0 == 1) & (Length_i1 < Length_i0)) {
 
         // Convert the decrease in LOI length to pixels.
@@ -252,10 +238,10 @@ for (i = 0; i < nResults; i++) {
 
         getDimensions(width, height, channels, slices, frames);
 
-        // Select all kymograph rows from the detected shortening event onward.
+        // Select all kymograph rows from the shortening event onward.
         makeRectangle(0, Slice_i1-1, width, height-Slice_i1+1);
 
-        // Shift the selected portion horizontally by M pixels.
+        // Shift the selected rows horizontally by M pixels.
         run("Cut");
         makeRectangle(M, Slice_i1-1, width, height-Slice_i1+1);
         run("Paste");
@@ -266,20 +252,21 @@ for (i = 0; i < nResults; i++) {
 
 
 // -----------------------------------------------------------------------------
-// Save and display the final laboratory-frame kymograph.
+// Rename and save the laboratory-frame kymograph, then display it at 100% zoom.
 // -----------------------------------------------------------------------------
 
 rename("LF_Kymograph of " + file + ".tif");
-saveAs("Tiff", input + "LF_Kymograph of " + file + ".tif");
+saveAs("Tiff", output + "LF_Kymograph of " + file + ".tif");
 
-run("Set... ", "zoom=75");
+run("Set... ", "zoom=100");
 setLocation(8, 130);
 
 
 // -----------------------------------------------------------------------------
-// Clean up temporary windows.
+// Restore the line width and close temporary analysis windows.
 // -----------------------------------------------------------------------------
 
+setTool(5);run("Line Width...", "line=1");
 close("Log");
 close("Results");
 
