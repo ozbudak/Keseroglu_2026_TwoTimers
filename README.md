@@ -99,8 +99,8 @@ intensity-profile CSV file.
 
 ## Demo Dataset
 
-An example maximum-projected YFP time-lapse `example_timelapse.tif`
-image and the associated ROI files are included in this repository and
+An example maximum-projected YFP time-lapse image `example_timelapse.tif`
+and the associated ROI files are included in this repository and
 can be used to test the macros.
 
 ## Citation
