@@ -1,66 +1,73 @@
 // =============================================================================
-// Anterior- and Determination-Front-Aligned Kymograph
+// Anterior- and Determination-Front-Aligned Kymograph Analysis
 // ImageJ/Fiji Macro
 //
 // Purpose:
-// Generates spatially aligned kymographs using either the anterior (AN)
-// boundary or the determination front (DF) as the anatomical reference.
+// Generates either an anterior-aligned (AN) or determination-front-aligned
+// (DF) kymograph from an input kymograph.
 //
-// The reference trajectory is manually defined on the input kymograph and
-// stored as ROI #0 in the ROI Manager. For each image row (time point), the
-// macro determines the x-coordinate of the reference trajectory and
-// horizontally shifts the row so that the selected anatomical reference
-// remains at a fixed spatial position throughout the kymograph.
+// The user selects the alignment type and intensity-profile line width at the
+// start of the macro. The default line width is set to 10 pixels, as used in
+// the analyses reported in the associated study.
 //
-// The macro can be used for two alignment modes:
+// A reference trajectory is then manually drawn on the input kymograph and
+// used to align each image row to the selected anatomical reference.
 //
-//       "AN" = anterior-aligned
-//       "DF" = determination-front-aligned
-//
-// Input requirements:
-//   1. Open the kymograph to be aligned.
-//   2. Draw the desired anatomical reference trajectory (AN or DF) along the
-//      kymograph.
-//   3. The reference trajectory must span the vertical extent of the
-//      kymograph and be stored as ROI #0 in the ROI Manager.
-//   4. Set `Position` and `deltaposit` according to the desired alignment.
-//   5. The input image title must contain "Kymograph" and end with ".tif".
-//
-// Alignment settings:
-//       AN: Position = "AN"; deltaposit = 20;
-//       DF: Position = "DF"; deltaposit = 0;
-//
-// `deltaposit` specifies the horizontal offset, in pixels, of the
-// intensity-profile line relative to the aligned anatomical reference.
-//
-// For the analyses reported in the associated study, the intensity-profile
-// line width was 10 pixels.
+// The macro generates the aligned kymograph and extracts a vertical intensity
+// profile at a fixed position relative to the aligned reference.
 //
 // Output:
-//   <Position>_<kymograph>.tif    Spatially aligned kymograph
-//   <Position>_<kymograph>.csv    Intensity profile extracted from the
-//                                 aligned kymograph
-//
-// Note:
-//   The output canvas is expanded to three times the width of the input
-//   kymograph to provide sufficient space for horizontal translation of
-//   individual image rows without clipping.
+//   <Position>_<kymograph>.roi    Reference trajectory
+//   <Position>_<kymograph>.tif    Aligned kymograph
+//   <Position>_<kymograph>.csv    Intensity profile
 //
 // =============================================================================
 
 
-// ------------------------- USER-DEFINED SETTINGS -----------------------------
+// =============================================================================
+// SELECT ALIGNMENT TYPE AND ANALYSIS WIDTH
+// =============================================================================
 
-Position = "DF";          // "AN" = anterior; "DF" = determination front
-deltaposit = 0;          // AN = 20 pixels; DF = 0 pixels
-AnalyseLineWidth = 10;    // Width of the intensity-profile line (pixels)
+Dialog.create("Kymograph Type");
+
+Dialog.addChoice("Select kymograph type:", 
+    newArray("Anterior-aligned", "Determination-front-aligned"), 
+    "Anterior-aligned");
+
+Dialog.addNumber("Analyze width (pixels):", 10);
+
+Dialog.show();
+
+type = Dialog.getChoice();
+AnalysisLineWidth = Dialog.getNumber();
+
+// Define the output prefix according to the selected alignment type.
+if (type == "Anterior-aligned") {
+    Position = "AN";
+} else if (type == "Determination-front-aligned") {
+    Position = "DF";
+}
 
 
 // =============================================================================
-// PART 1 — LOAD THE INPUT KYMOGRAPH AND REFERENCE TRAJECTORY
+// PART 1 — DEFINE THE REFERENCE TRAJECTORY
+// =============================================================================
+//
+// Set the position of the intensity-profile line relative to the aligned
+// anatomical reference. The profile is offset by 20 pixels for AN alignment
+// and placed directly at the reference position for DF alignment.
 // =============================================================================
 
-// Read information from the currently active kymograph.
+if (Position == "AN") {
+	deltaposit = 20;
+} else if (Position == "DF") {
+    deltaposit = 0;
+} else {
+	showMessage("Select Position: AN or DF");
+}
+
+
+// Read the input directory and kymograph title.
 input = getInfo("image.Directory");
 title = getTitle;
 
@@ -68,7 +75,15 @@ subtitle = substring(title,
                      indexOf(title, "Kymograph"),
                      indexOf(title, ".tif"));
 
-// Store the manually defined anatomical reference trajectory as ROI #0.
+
+// Set the line width to 1 pixel and allow the user to draw the anatomical
+// reference trajectory on the input kymograph.
+setTool(5);run("Line Width...", "line=1");
+waitForUser("Add line", "Add line for " + type + " kymograpgh");
+
+
+// Replace any existing ROI Manager and store the newly drawn reference
+// trajectory as ROI #0.
 if (isOpen("ROI Manager")) {
     selectWindow("ROI Manager");
     run("Close");
@@ -77,17 +92,20 @@ if (isOpen("ROI Manager")) {
     roiManager("Add");
 }
 
+
+// Save the reference trajectory.
+roiManager("Save", input + Position + "_" + subtitle + ".roi");
+
 getDimensions(width, height, channels, slices, frames);
 
 
 // =============================================================================
-// PART 2 — CREATE AN EXPANDED OUTPUT CANVAS
+// PART 2 — CREATE THE OUTPUT CANVAS
 // =============================================================================
 //
-// Duplicate the input kymograph and expand its width threefold. The enlarged
-// canvas provides sufficient space to translate individual image rows
-// horizontally while preserving the complete image content.
-// -----------------------------------------------------------------------------
+// Duplicate the input kymograph and expand the canvas horizontally to provide
+// sufficient space for translation of individual image rows.
+// =============================================================================
 
 selectWindow(title);
 setLocation(-8, 0);
@@ -105,13 +123,12 @@ setLocation(0, 483);
 
 
 // =============================================================================
-// PART 3 — INTERPOLATE THE ANATOMICAL REFERENCE TRAJECTORY
+// PART 3 — INTERPOLATE THE REFERENCE TRAJECTORY
 // =============================================================================
 //
-// Interpolate ROI #0 at approximately one-pixel intervals to obtain the
-// position of the anatomical reference along the vertical extent of the
-// kymograph.
-// -----------------------------------------------------------------------------
+// Interpolate the manually drawn reference trajectory at approximately
+// one-pixel intervals and obtain its x- and y-coordinates.
+// =============================================================================
 
 roiManager("Select", 0);
 roiManager("Set Line Width", 1);
@@ -133,10 +150,9 @@ minx = round(minx);
 // PART 4 — DETERMINE THE REFERENCE POSITION FOR EACH IMAGE ROW
 // =============================================================================
 //
-// Copy the interpolated trajectory coordinates into working arrays.
-// x-coordinates are initially retained at full precision, whereas
-// y-coordinates are rounded to the nearest image row.
-// -----------------------------------------------------------------------------
+// Convert the interpolated trajectory into one representative horizontal
+// reference position for each image row.
+// =============================================================================
 
 a = newArray(arrax.length);
 
@@ -155,9 +171,8 @@ Array.getStatistics(b, minby, maxby, meanby, stdDevby);
 
 
 // -----------------------------------------------------------------------------
-// Interpolation can produce multiple trajectory coordinates that map to the
-// same image row after rounding. For each such group, use the midpoint between
-// the first and last x-coordinate as the representative reference position.
+// Multiple interpolated coordinates can fall within the same image row.
+// For these coordinates, calculate a single representative x-position.
 // -----------------------------------------------------------------------------
 
 x = newArray(a.length);
@@ -190,8 +205,8 @@ for (i = 1; i < a.length-1; i++) {
         upd = 1;
     }
 
-    // Assign the representative midpoint to all trajectory coordinates
-    // belonging to the preceding image row.
+    // Assign the representative x-position to coordinates belonging to the
+    // preceding image row.
     if (upd == 1) {
 
         for (j = 1; j <= count1; j++) {
@@ -202,7 +217,7 @@ for (i = 1; i < a.length-1; i++) {
 
 
 // -----------------------------------------------------------------------------
-// Retain one representative x-coordinate for each unique image row.
+// Retain one reference x-coordinate for each image row.
 // -----------------------------------------------------------------------------
 
 selectWindow(title);
@@ -233,10 +248,10 @@ for (i = 0; i < b.length-1; i++) {
 // PART 5 — ALIGN THE KYMOGRAPH
 // =============================================================================
 //
-// Shift each image row horizontally according to the x-coordinate of the
-// anatomical reference trajectory. This places the selected reference
-// (AN or DF) at the same x-position throughout the output kymograph.
-// -----------------------------------------------------------------------------
+// Copy each image row from the original kymograph and reposition it
+// horizontally according to the reference trajectory. This aligns the
+// selected anatomical reference to a fixed horizontal position.
+// =============================================================================
 
 for (i = 0; i < yy.length; i++) {
 
@@ -244,20 +259,19 @@ for (i = 0; i < yy.length; i++) {
 
         selectWindow(title);
 
-        // Calculate the horizontal position at which the current row should
-        // be placed in the expanded output canvas.
+        // Calculate the horizontal destination of the current image row.
         xtart = minx - xx[i] + width;
 
-        // Copy one row from the original kymograph.
+        // Copy the corresponding row from the original kymograph.
         makeRectangle(0, yy[i], width, 1);
         run("Copy");
 
-        // Paste the row at its reference-dependent horizontal position.
+        // Paste the row into the aligned kymograph.
         selectWindow("kymoshift");
         makeRectangle(xtart, yy[i], width, 1);
         run("Paste");
 
-        // Clear image regions outside the translated row.
+        // Clear image regions outside the repositioned row.
         if (xtart < width) {
 
             makeRectangle(xtart + width, yy[i], width, 1);
@@ -274,13 +288,12 @@ for (i = 0; i < yy.length; i++) {
 
 
 // =============================================================================
-// PART 6 — HANDLE THE FIRST IMAGE ROW
+// PART 6 — ALIGN THE FIRST IMAGE ROW
 // =============================================================================
 //
-// The first trajectory row is treated separately because its representative
-// x-coordinate cannot be obtained from the preceding-row comparison used
-// above.
-// -----------------------------------------------------------------------------
+// Determine the representative reference position for the first image row
+// separately and place the row at the corresponding aligned position.
+// =============================================================================
 
 count = 0;
 
@@ -304,6 +317,7 @@ for (i = 0; i < a.length-1; i++) {
         i = a.length - 1;
     }
 }
+
 
 selectWindow(title);
 
@@ -331,12 +345,12 @@ if (xtart >= width) {
 
 
 // =============================================================================
-// PART 7 — HANDLE THE FINAL IMAGE ROW
+// PART 7 — ALIGN THE FINAL IMAGE ROW
 // =============================================================================
 //
-// The final trajectory row is also treated separately because there is no
-// subsequent row available for the coordinate comparison.
-// -----------------------------------------------------------------------------
+// Determine the representative reference position for the final image row
+// separately and place the row at the corresponding aligned position.
+// =============================================================================
 
 count = 0;
 
@@ -360,6 +374,7 @@ for (i = a.length-1; i > 0; i--) {
         i = 0;
     }
 }
+
 
 selectWindow(title);
 
@@ -396,7 +411,7 @@ roiManager("Select", 0);
 
 selectWindow("kymoshift");
 
-// Rename according to the selected anatomical reference.
+// Rename the aligned kymograph according to the selected anatomical reference.
 rename(Position + "_" + subtitle);
 
 
@@ -406,52 +421,57 @@ rename(Position + "_" + subtitle);
 //
 // Extract a vertical intensity profile from the aligned kymograph.
 //
-// For AN alignment, the profile is positioned 20 pixels from the aligned
-// anterior reference (deltaposit = 20).
+// For anterior alignment, the profile is positioned 20 pixels from the aligned
+// anterior reference. For determination-front alignment, the profile is
+// positioned directly at the aligned determination front.
 //
-// For DF alignment, the profile passes directly through the aligned
-// determination front (deltaposit = 0).
-//
-// The kymograph is saved as a TIF file.
-//
-// The resulting intensity values are saved as a CSV file.
-// -----------------------------------------------------------------------------
+// The width of the profile line is defined by AnalysisLineWidth.
+// =============================================================================
 
-selectWindow(Position + "_" + subtitle + ".tif");
+selectWindow(Position + "_" + subtitle);
 
+// Determine the fixed horizontal position of the aligned reference.
 posit = width + minx;
 
-setLocation(-8, heightt, width, heightt);
+setLocation(-8, heightt+50, width, heightt+60);
 
 run("Set... ",
     "zoom=100 x=" + posit + deltaposit + " y=0");
 
-setLocation(-8, heightt, width, heightt);
+setLocation(-8, heightt+50, width, heightt+60);
 
 run("Set... ",
     "zoom=100 x=" + posit + deltaposit + " y=0");
+
 
 // Draw the vertical line used for intensity-profile extraction.
 makeLine(posit + deltaposit,
          yyy,
          posit + deltaposit,
-         heightt,
-         AnalyseLineWidth);
+         heightt-1,
+         AnalysisLineWidth);
+
 
 // Save the aligned kymograph.
-selectWindow(Position + "_" + subtitle + ".tif");
+selectWindow(Position + "_" + subtitle);
 saveAs("Tiff", input + "/" + Position + "_" + subtitle + ".tif");
+
 
 // Generate the intensity profile.
 run("Plot Profile");
 Plot.showValues();
 
-// Save the profile values.
+
+// Save the intensity-profile values.
 selectWindow("Results");
 String.copyResults();
 
 saveAs("Results",
        input + "/" + Position + "_" + subtitle + ".csv");
 
+
+// Close analysis windows.
 close("Results");
 close("Plot of " + Position + "_" + subtitle);
+close(Position + "_" + subtitle + ".tif");
+close("ROI Manager");
